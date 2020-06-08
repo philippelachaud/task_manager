@@ -10,27 +10,22 @@ final class TaskManager(val capacity: Long) {
   private var minMax: (ProcessPriority, ProcessPriority) = (ProcessPriority.LOW, ProcessPriority.LOW)
 
   def isFull: Boolean = capacity < 0 || processQueue.size == capacity
+
   def add(taskRegister: TaskRegistrar): Unit = {
     val queue = taskRegister.add(processQueue, isFull, minMax);
     if (queue.isDefined) {
       processQueue = queue.get
+      // Let's update the tuple of max and min priority, as we might need when
+      // adding a new process (cf. PriorityTaskRegistrar)
       minMax = minMaxPriority(taskRegister)
     }
   }
 
-  private def minMaxPriority(taskRegister: TaskRegistrar): (ProcessPriority, ProcessPriority) = {
-    val minPriority = if (taskRegister.process.priority < minMax._1) taskRegister.process.priority else minMax._1
-    val maxPriority = if (taskRegister.process.priority > minMax._2) taskRegister.process.priority else minMax._2
-
-    (minPriority, maxPriority)
-  }
-
+  // The list function uses a sorting function as parameter
+  // (cf. SortRegistrar)
   def list(sort: Queue[Process] => Queue[Process]): Queue[Process] = {
     sort(processQueue)
   }
-
-  def removeFromQueue(process: Process): Unit =
-    processQueue = processQueue.filter(p => p.pid != process.pid)
 
   def kill(process: Process): Unit = {
     process.kill()
@@ -47,8 +42,20 @@ final class TaskManager(val capacity: Long) {
     killAll(processQueue)
     processQueue = Queue()
   }
+
+  private def removeFromQueue(process: Process): Unit =
+    processQueue = processQueue.filter(p => p.pid != process.pid)
+
+
   private def killAll(queue: Queue[Process]): Unit = {
     queue.foreach(kill)
+  }
+
+  private def minMaxPriority(taskRegister: TaskRegistrar): (ProcessPriority, ProcessPriority) = {
+    val minPriority = if (taskRegister.process.priority < minMax._1) taskRegister.process.priority else minMax._1
+    val maxPriority = if (taskRegister.process.priority > minMax._2) taskRegister.process.priority else minMax._2
+
+    (minPriority, maxPriority)
   }
 }
 

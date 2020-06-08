@@ -9,36 +9,32 @@ class TaskManagerTest extends AnyFunSuite {
   test("TaskManager has a capacity limit") {
     val taskManager = TaskManager(3)
 
+    val processHigh = Process(ProcessPriority.HIGH)
+    val processLow = Process(ProcessPriority.LOW)
+    val processMedium = Process(ProcessPriority.MEDIUM)
+    val processMediumSecond = Process(ProcessPriority.MEDIUM)
+
     // Add a process (1/3) - Default behaviour
-    taskManager.add(DefaultTaskRegistrar(Process(ProcessPriority.MEDIUM)))
-    taskManager.add(DefaultTaskRegistrar(Process(ProcessPriority.LOW)))
-    taskManager.add(DefaultTaskRegistrar(Process(ProcessPriority.MEDIUM)))
+    val expectedDefaultBehaviourQueue: Queue[Process] = Queue(processMedium, processLow, processMedium)
+    taskManager.add(DefaultTaskRegistrar(processMedium))
+    taskManager.add(DefaultTaskRegistrar(processLow))
+    taskManager.add(DefaultTaskRegistrar(processMedium))
     // This one won't be added
     taskManager.add(DefaultTaskRegistrar(Process(ProcessPriority.HIGH)))
-
-    val processQueueDefaultCase: Queue[Process] = taskManager.list(SortRegistrar.byTime)
-    assert(processQueueDefaultCase.size == 3)
-    assert(processQueueDefaultCase.count(p => p.priority == ProcessPriority.HIGH) == 0)
-    assert(processQueueDefaultCase.count(p => p.priority == ProcessPriority.MEDIUM) == 2)
-    assert(processQueueDefaultCase.count(p => p.priority == ProcessPriority.LOW) == 1)
+    assertResult(expectedDefaultBehaviourQueue)(taskManager.list(SortRegistrar.byTime))
 
     // Add a process (2/3) - FIFO
-    taskManager.add(FifoTaskRegistrar(Process(ProcessPriority.LOW)))
-    val processQueueFifoCase: Queue[Process] = taskManager.list(SortRegistrar.byTime)
-    assert(processQueueFifoCase.size == 3)
-    // The First In (MEDIUM) has been kick ou
-    assert(processQueueFifoCase.count(p => p.priority == ProcessPriority.MEDIUM) == 1)
-    // The second LOW has been added
-    assert(processQueueFifoCase.count(p => p.priority == ProcessPriority.LOW) == 2)
+    val processFifoLow = Process(ProcessPriority.LOW)
+    val expectedFifoQueue: Queue[Process] = Queue(processLow, processMedium, processFifoLow)
+    taskManager.add(FifoTaskRegistrar(processFifoLow))
+    assertResult(expectedFifoQueue)(taskManager.list(SortRegistrar.byTime))
 
     // Add a process (3/3) - Priority based
-    taskManager.add(PriorityTaskRegistrar(Process(ProcessPriority.HIGH)))
+    val processPrioHigh = Process(ProcessPriority.HIGH)
+    val expectedPrioQueue: Queue[Process] = Queue(processMedium, processFifoLow, processPrioHigh)
+    taskManager.add(PriorityTaskRegistrar(processPrioHigh))
     val processQueuePriorityCase: Queue[Process] = taskManager.list(SortRegistrar.byTime)
-    assert(processQueuePriorityCase.size == 3)
-    // The First LOW has been kick ou
-    assert(processQueuePriorityCase.count(p => p.priority == ProcessPriority.LOW) == 1)
-    // The first HIGH has been added
-    assert(processQueuePriorityCase.count(p => p.priority == ProcessPriority.HIGH) == 1)
+    assertResult(expectedPrioQueue)(taskManager.list(SortRegistrar.byTime))
   }
 
   test("TaskManager can list processes") {
@@ -54,6 +50,7 @@ class TaskManagerTest extends AnyFunSuite {
 
     val expectedQueueByTime: Queue[Process] = Queue(processHigh, processLow, processMedium)
     assertResult(expectedQueueByTime)(taskManager.list(SortRegistrar.byTime))
+
     val expectedQueueByPrio: Queue[Process] = Queue(processHigh, processMedium, processLow)
     assertResult(expectedQueueByPrio)(taskManager.list(SortRegistrar.byPriority))
     // Can't really test the byId as the id are randomly generated
@@ -83,6 +80,25 @@ class TaskManagerTest extends AnyFunSuite {
     val expectedQueueKillAll: Queue[Process] = Queue()
     taskManager.killAll()
     assertResult(expectedQueueKillAll)(taskManager.list(SortRegistrar.byTime))
+  }
+
+  test("Killing/Listing processes on TestManager with empty capacity do nothing") {
+    val taskManager = TaskManager(10)
+
+    val expectedQueueKill: Queue[Process] = Queue()
+    taskManager.kill(Process(ProcessPriority.HIGH))
+    assertResult(expectedQueueKill)(taskManager.list(SortRegistrar.byTime))
+
+    val expectedQueueKillAllByPriority: Queue[Process] = Queue()
+    taskManager.killAllByPriority(ProcessPriority.MEDIUM)
+    assertResult(expectedQueueKillAllByPriority)(taskManager.list(SortRegistrar.byTime))
+
+    val expectedQueueKillAll: Queue[Process] = Queue()
+    taskManager.killAll()
+    assertResult(expectedQueueKillAll)(taskManager.list(SortRegistrar.byTime))
+
+     val expectedQueueList: Queue[Process] = Queue()
+    assertResult(expectedQueueList)(taskManager.list(SortRegistrar.byTime))
   }
 
   test("TaskManager with a negative capacity is full") {

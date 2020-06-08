@@ -6,5 +6,4 @@ scalaVersion := "2.13.2"
 
 resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.2" % "test"
-addSbtPlugin("com.artima.supersafe" % "sbtplugin" % "1.1.10")
 
